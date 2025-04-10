@@ -12,6 +12,7 @@ To showcase how public data can be organized and processed into reusable pipelin
 - Streamlit or Power BI (for dashboards)
 - Google BigQuery / SQLite / CSV
 - Public APIs (IBGE, company registries, etc.)
+- OBS: with **Kotlin** — especially useful if you're working with data in lists, JSON, or APIs. Exemplo: Salvando CSV em Kotlin.
 
 ## 💡 Use Cases
 
