@@ -1,0 +1,336 @@
+version: '3.8'
+
+# ==============================================================================
+# DOCKER COMPOSE CONFIGURATION FOR DEVELOPMENT AND TESTING
+# ==============================================================================
+
+services:
+  # ==============================================================================
+  # DATABASE SERVICE - PostgreSQL
+  # ==============================================================================
+  postgres:
+    image: postgres:15-alpine
+    container_name: public-data-pipeline-postgres
+    environment:
+      POSTGRES_DB: ${DB_NAME:-public_data}
+      POSTGRES_USER: ${DB_USER:-user}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-password}
+      POSTGRES_INITDB_ARGS: "--encoding=UTF-8 --lc-collate=C --lc-ctype=C"
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./scripts/init_db.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
+      - ./scripts/seed_data.sql:/docker-entrypoint-initdb.d/02-seed.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-user} -d ${DB_NAME:-public_data}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    networks:
+      - data-pipeline-network
+
+  # ==============================================================================
+  # CACHE SERVICE - Redis
+  # ==============================================================================
+  redis:
+    image: redis:7-alpine
+    container_name: public-data-pipeline-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+      - ./config/redis.conf:/usr/local/etc/redis/redis.conf:ro
+    command: redis-server /usr/local/etc/redis/redis.conf
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    restart: unless-stopped
+    networks:
+      - data-pipeline-network
+
+  # ==============================================================================
+  # MAIN APPLICATION SERVICE
+  # ==============================================================================
+  app:
+    build: 
+      context: .
+      dockerfile: Dockerfile
+      target: production
+    container_name: public-data-pipeline-app
+    environment:
+      - ENV=${ENV:-development}
+      - DATABASE_URL=postgresql://${DB_USER:-user}:${DB_PASSWORD:-password}@postgres:5432/${DB_NAME:-public_data}
+      - REDIS_URL=redis://redis:6379/0
+      - PYTHONPATH=/app/src
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./data:/app/data
+      - ./logs:/app/logs
+      - ./config:/app/config:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    restart: unless-stopped
+    networks:
+      - data-pipeline-network
+
+  # ==============================================================================
+  # STREAMLIT DASHBOARD SERVICE
+  # ==============================================================================
+  dashboard:
+    build: 
+      context: .
+      dockerfile: Dockerfile
+      target: production
+    container_name: public-data-pipeline-dashboard
+    environment:
+      - ENV=${ENV:-development}
+      - DATABASE_URL=postgresql://${DB_USER:-user}:${DB_PASSWORD:-password}@postgres:5432/${DB_NAME:-public_data}
+      - REDIS_URL=redis://redis:6379/0
+      - PYTHONPATH=/app/src
+    ports:
+      - "8501:8501"
+    volumes:
+      - ./data:/app/data:ro
+      - ./config:/app/config:ro
+    depends_on:
+      app:
+        condition: service_healthy
+    command: ["streamlit", "run", "src/dashboard/main.py", "--server.address", "0.0.0.0", "--server.port", "8501"]
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8501/_stcore/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    restart: unless-stopped
+    networks:
+      - data-pipeline-network
+
+  # ==============================================================================
+  # JUPYTER NOTEBOOK SERVICE (Development)
+  # ==============================================================================
+  jupyter:
+    build: 
+      context: .
+      dockerfile: Dockerfile.dev
+      target: development
+    container_name: public-data-pipeline-jupyter
+    environment:
+      - JUPYTER_ENABLE_LAB=yes
+      - JUPYTER_TOKEN=${JUPYTER_TOKEN:-}
+      - DATABASE_URL=postgresql://${DB_USER:-user}:${DB_PASSWORD:-password}@postgres:5432/${DB_NAME:-public_data}
+      - REDIS_URL=redis://redis:6379/0
+      - PYTHONPATH=/app/src
+    ports:
+      - "8888:8888"
+    volumes:
+      - ./notebooks:/app/notebooks
+      - ./data:/app/data
+      - ./src:/app/src
+      - ./config:/app/config:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    command: >
+      jupyter lab 
+      --ip=0.0.0.0 
+      --port=8888 
+      --no-browser 
+      --allow-root 
+      --notebook-dir=/app/notebooks
+      --ServerApp.token='${JUPYTER_TOKEN:-}'
+      --ServerApp.password=''
+    restart: unless-stopped
+    networks:
+      - data-pipeline-network
+    profiles:
+      - development
+
+  # ==============================================================================
+  # CELERY WORKER SERVICE (Background Tasks)
+  # ==============================================================================
+  worker:
+    build: 
+      context: .
+      dockerfile: Dockerfile
+      target: production
+    container_name: public-data-pipeline-worker
+    environment:
+      - ENV=${ENV:-development}
+      - DATABASE_URL=postgresql://${DB_USER:-user}:${DB_PASSWORD:-password}@postgres:5432/${DB_NAME:-public_data}
+      - REDIS_URL=redis://redis:6379/0
+      - PYTHONPATH=/app/src
+    volumes:
+      - ./data:/app/data
+      - ./logs:/app/logs
+      - ./config:/app/config:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    command: ["celery", "-A", "src.tasks.celery", "worker", "--loglevel=info"]
+    restart: unless-stopped
+    networks:
+      - data-pipeline-network
+    profiles:
+      - production
+
+  # ==============================================================================
+  # CELERY FLOWER SERVICE (Task Monitoring)
+  # ==============================================================================
+  flower:
+    build: 
+      context: .
+      dockerfile: Dockerfile
+      target: production
+    container_name: public-data-pipeline-flower
+    environment:
+      - REDIS_URL=redis://redis:6379/0
+    ports:
+      - "5555:5555"
+    depends_on:
+      redis:
+        condition: service_healthy
+    command: ["celery", "-A", "src.tasks.celery", "flower", "--port=5555"]
+    restart: unless-stopped
+    networks:
+      - data-pipeline-network
+    profiles:
+      - production
+
+  # ==============================================================================
+  # PROMETHEUS SERVICE (Metrics Collection)
+  # ==============================================================================
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: public-data-pipeline-prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./monitoring/rules:/etc/prometheus/rules:ro
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/usr/share/prometheus/console_libraries'
+      - '--web.console.templates=/usr/share/prometheus/consoles'
+      - '--storage.tsdb.retention.time=200h'
+      - '--web.enable-lifecycle'
+    restart: unless-stopped
+    networks:
+      - data-pipeline-network
+    profiles:
+      - monitoring
+
+  # ==============================================================================
+  # GRAFANA SERVICE (Dashboards and Visualization)
+  # ==============================================================================
+  grafana:
+    image: grafana/grafana:latest
+    container_name: public-data-pipeline-grafana
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_USER=${GRAFANA_ADMIN_USER:-admin}
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD:-admin}
+      - GF_USERS_ALLOW_SIGN_UP=false
+      - GF_INSTALL_PLUGINS=grafana-piechart-panel
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
+    depends_on:
+      - prometheus
+    restart: unless-stopped
+    networks:
+      - data-pipeline-network
+    profiles:
+      - monitoring
+
+  # ==============================================================================
+  # PGADMIN SERVICE (Database Administration)
+  # ==============================================================================
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: public-data-pipeline-pgadmin
+    environment:
+      - PGADMIN_DEFAULT_EMAIL=${PGADMIN_EMAIL:-admin@example.com}
+      - PGADMIN_DEFAULT_PASSWORD=${PGADMIN_PASSWORD:-admin}
+      - PGADMIN_CONFIG_SERVER_MODE=False
+    ports:
+      - "8080:80"
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+      - ./config/pgadmin_servers.json:/pgadmin4/servers.json:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - data-pipeline-network
+    profiles:
+      - development
+
+  # ==============================================================================
+  # NGINX SERVICE (Reverse Proxy and Load Balancer)
+  # ==============================================================================
+  nginx:
+    image: nginx:alpine
+    container_name: public-data-pipeline-nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./config/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./config/nginx/ssl:/etc/nginx/ssl:ro
+    depends_on:
+      - app
+      - dashboard
+    restart: unless-stopped
+    networks:
+      - data-pipeline-network
+    profiles:
+      - production
+
+# ==============================================================================
+# VOLUMES
+# ==============================================================================
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+  prometheus_data:
+    driver: local
+  grafana_data:
+    driver: local
+  pgadmin_data:
+    driver: local
+
+# ==============================================================================
+# NETWORKS
+# ==============================================================================
+networks:
+  data-pipeline-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16
