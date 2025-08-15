@@ -1,7 +1,9 @@
 # extract_ibge.py
-import requests
-import pandas as pd
 import os
+
+import pandas as pd
+import requests
+
 
 def fetch_population_data(year=2021):
     """Fetches population data from IBGE API for all Brazilian states."""
@@ -11,14 +13,15 @@ def fetch_population_data(year=2021):
     if response.status_code == 200:
         data = response.json()
         records = []
-        for item in data[0]['resultados'][0]['series']:
-            state = item['localidade']['nome']
-            population = item['serie'][str(year)]
-            records.append({'State': state, 'Population': population})
+        for item in data[0]["resultados"][0]["series"]:
+            state = item["localidade"]["nome"]
+            population = item["serie"][str(year)]
+            records.append({"State": state, "Population": population})
         df = pd.DataFrame(records)
         return df
     else:
         raise Exception(f"Failed to fetch data from IBGE: {response.status_code}")
+
 
 if __name__ == "__main__":
     df_population = fetch_population_data()

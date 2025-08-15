@@ -1,6 +1,7 @@
 # load_bigquery.py
-from google.cloud import bigquery
 import pandas as pd
+from google.cloud import bigquery
+
 
 def load_csv_to_bigquery(csv_path, table_id):
     """Loads a CSV file to a BigQuery table."""
@@ -11,6 +12,7 @@ def load_csv_to_bigquery(csv_path, table_id):
     job.result()  # Wait for the job to complete
 
     print(f"✅ Data successfully loaded into {table_id}")
+
 
 if __name__ == "__main__":
     csv_path = "data/raw/population_ibge.csv"

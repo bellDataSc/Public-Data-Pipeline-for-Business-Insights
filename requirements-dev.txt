@@ -1,0 +1,52 @@
+# ==============================================================================
+# DEVELOPMENT REQUIREMENTS - VERSÃO SIMPLIFICADA
+# ==============================================================================
+
+# Incluir dependências de produção
+-r requirements.txt
+
+# ==============================================================================
+# FERRAMENTAS ESSENCIAIS DE DESENVOLVIMENTO
+# ==============================================================================
+
+# Testes
+pytest>=7.3.0
+pytest-cov>=4.1.0
+pytest-mock>=3.10.0
+
+# Formatação e Qualidade de Código
+black>=23.3.0
+isort>=5.12.0
+flake8>=6.0.0
+mypy>=1.3.0
+
+# Segurança
+bandit>=1.7.0
+safety>=2.3.0
+
+# Desenvolvimento
+pre-commit>=3.3.0
+bump2version>=1.0.0
+
+# Documentação
+mkdocs>=1.4.0
+mkdocs-material>=9.1.0
+
+# Jupyter
+jupyter>=1.0.0
+jupyterlab>=4.0.0
+ipykernel>=6.23.0
+
+# Visualização
+matplotlib>=3.7.0
+seaborn>=0.12.0
+plotly>=5.14.0
+streamlit>=1.22.0
+
+# Web Framework
+fastapi>=0.95.0
+uvicorn>=0.22.0
+
+# Utilitários
+watchdog>=3.0.0
+python-multipart>=0.0.6
