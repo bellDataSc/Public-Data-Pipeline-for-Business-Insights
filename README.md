@@ -1,50 +1,134 @@
 # Public Data Pipeline for Business Insights
 
-This project simulates a complete data pipeline that extracts, transforms, and analyzes **public data sources** (e.g., IBGE, Brazilian Federal Revenue) to generate insights that support **data-driven decision making**.
+[![CI](https://github.com/bellDataSc/Public-Data-Pipeline-for-Business-Insights/workflows/CI/badge.svg)](https://github.com/bellDataSc/Public-Data-Pipeline-for-Business-Insights/actions)
+[![Python 3.9+](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/downloads/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
+[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](http://makeapullrequest.com)
 
-      -- Check out the same project in Kotlin ' gh repo clone bellDataSc/Kotlin-Data-Pipeline ' - This project is a complete rewrite of my previous data pipeline, now using only Kotlin. The choice of language is intended to show how it is possible to apply modern data engineering practices outside of the Python ecosystem, using the power of the JVM, while maintaining conciseness, and preparing the code to evolve into backend applications or microservices in the future.
+> A comprehensive ETL pipeline for Brazilian public data analysis and business insights
 
-**Objective**
 
-To showcase how public data can be organized and processed into reusable pipelines to extract value in fields such as public administration, education, media, and regional economic development.
+## Features
 
-**Tech Stack**
+- **ETL Pipeline**: Complete Extract, Transform, Load workflow
+- **🇧🇷 Brazilian Data**: Specialized for Brazilian public datasets
+- **IBGE Integration**: Direct integration with Brazilian census data
+- **SICONV Support**: Government funding and transfer data
+- **Async Processing**: High-performance data processing
+- **Well Tested**: Comprehensive test suite with pytest
+- **Business Intelligence**: Ready-to-use insights and analytics
 
-- Python (pandas, requests)
-- Streamlit or Power BI (for dashboards)
-- Google BigQuery / SQLite / CSV
-- Public APIs (IBGE, company registries, etc.)
+## Architecture
 
-**Use Cases**
+            src/public_data_pipeline/
+        ├── extractors/ # Data extraction modules
+        │ ├── ibge_extractor.py # IBGE API integration
+        │ └── siconv_extractor.py # SICONV data extraction
+        ├── transformers/ # Data transformation
+        │ ├── cleaner.py # Data cleaning utilities
+        │ └── normalizer.py # Data normalization
+        └── loaders/ # Data loading and export
+        ├── csv_loader.py # CSV export functionality
+        └── database_loader.py # Database integration
 
-- Ranking cities by educational potential
-- Clustering regional economic profiles
-- Exploratory analysis of population and consumption behavior
+
+
+## Data Sources
+
+### IBGE (Brazilian Institute of Geography and Statistics)
+- **Population Census**: Demographic data by municipality
+- **Economic Surveys**: GDP, employment, income statistics  
+- **Geographic Data**: Administrative boundaries and territories
+
+### SICONV
+- **Federal Transfers**: Government funding data
+- **Municipal Projects**: Public investment tracking
+- **Budget Analysis**: Government spending insights
+
+## Configuration
+
+Create a `.env` file for configuration:
+
+API Configuration
+
+IBGE_API_BASE_URL=https://servicodados.ibge.gov.br/api/v1
+SICONV_API_BASE_URL=https://api.siconv.gov.br
 
 ---
 
-**Project Structure**
+## Usage Examples
 
-public-data-pipeline/ │
-├── data/ │
-├── raw/ # raw data extracted from public APIs │ 
-└── processed/ # cleaned and transformed data │ 
-├── scripts/ # ETL scripts │ 
-├── extract_ibge.py │ 
-└── load_bigquery.py │ 
-├── notebooks/ # exploratory data analysis (EDA) │ 
-└── population_analysis.py │ 
-├── dashboards/ # BI or Streamlit visual dashboards (to come) │ 
-├── requirements.txt # dependencies 
-└── README.md
+### Basic Data Extraction
 
+    from public_data_pipeline.extractors import IBGEExtractor
 
+Initialize extractor
+
+    extractor = IBGEExtractor()
+
+Extract population data
+
+    population_data = extractor.get_population_data(year=2020)
+    print(f"Extracted {len(population_data)} records")
 
 ---
 
-## 👩‍💻 Created by
+## Quick Start
 
-**Bel** – Data Analyst with expertise in public data, BI and ETL, currently working in the government of São Paulo, Brazil.
+Clone repository
+    git clone https://github.com/bellDataSc/Public-Data-Pipeline-for-Business-Insights.git
+    cd Public-Data-Pipeline-for-Business-Insights
 
+Create virtual environment
+    python -m venv venv
+    venv\Scripts\activate # Windows
 
+source venv/bin/activate # macOS/Linux
+Install for development
 
+    pip install -e .
+    pip install -r requirements-dev.txt
+
+Run tests
+    pytest -v
+
+---
+
+## Contributing
+
+We welcome contributions! Please see our [Contributing Guidelines](CONTRIBUTING.md) for details.
+
+### Development Setup
+1. Fork the repository
+2. Create a feature branch (`git checkout -b feature/amazing-feature`)
+3. Make your changes
+4. Add tests for your changes
+5. Ensure tests pass (`pytest -v`)
+6. Commit your changes (`git commit -m 'Add amazing feature'`)
+7. Push to the branch (`git push origin feature/amazing-feature`)
+8. Open a Pull Request
+
+### Code Standards
+- Follow PEP 8 style guidelines
+- Add type hints to all functions
+- Write comprehensive docstrings
+- Maintain >90% test coverage
+- Use conventional commit messages
+
+## License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+## Acknowledgments
+
+- **IBGE** for providing comprehensive Brazilian statistical data
+- **Brazilian Government** for open data initiatives
+- **Python Community** for excellent data science tools
+
+## Author
+
+**Bel** - Data Engineer & Analyst  
+- GitHub: [@bellDataSc](https://github.com/bellDataSc)
+- LinkedIn: [Connect with Bel](https://www.linkedin.com/in/belcruz/)
+- Email: isabel.gon.adm@gmail.com
